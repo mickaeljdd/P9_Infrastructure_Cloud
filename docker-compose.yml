@@ -1,4 +1,5 @@
 services:
+
   redpanda:
     image: redpandadata/redpanda:latest
     container_name: redpanda
@@ -11,6 +12,48 @@ services:
       - --node-id 0
       - --check=false
       - --kafka-addr PLAINTEXT://0.0.0.0:9092
-      - --advertise-kafka-addr PLAINTEXT://localhost:9092
+      - --advertise-kafka-addr PLAINTEXT://redpanda:9092
     ports:
       - "9092:9092"
+
+  producer:
+    image: python:3.11
+    container_name: producer
+    depends_on:
+      - redpanda
+    volumes:
+      - ./:/app
+    working_dir: /app
+    command: >
+      sh -c "pip install kafka-python &&
+             python producer.py"
+
+  spark:
+    image: apache/spark:3.5.1
+    container_name: spark
+    depends_on:
+      - redpanda
+    environment:
+      - SPARK_MODE=master
+    ports:
+      - "8080:8080"
+
+  consumer:
+    environment:
+      - IVY_HOME=/tmp/.ivy2
+    image: apache/spark:3.5.1
+    container_name: consumer
+    depends_on:
+      - spark
+      - redpanda
+    volumes:
+      - ./:/app
+    working_dir: /app
+    command: >
+      /opt/spark/bin/spark-submit
+      --repositories https://repo1.maven.org/maven2
+      --conf spark.jars.ivy=/tmp/.ivy2
+      --conf "spark.ui.showConsoleProgress=false"
+      --conf "spark.sql.streaming.ui.enabled=false"
+      --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1
+      /app/spark_streaming.py
