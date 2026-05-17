@@ -48,6 +48,8 @@ services:
       - redpanda
     volumes:
       - ./:/app
+      - ./output:/app/output
+      - ./checkpoint:/app/checkpoint
     working_dir: /app
     command: >
       /opt/spark/bin/spark-submit
