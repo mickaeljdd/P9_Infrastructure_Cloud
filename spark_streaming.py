@@ -26,13 +26,17 @@ df_parsed = df.selectExpr("CAST(value AS STRING)") \
     .select("data.*")
 
 # Exemple d'analyse : nombre de tickets par priorité
-df_analysis = df_parsed.groupBy("priorite").count()
+df_analysis = df_parsed.groupBy("type_demande").count()
+
+def write_batch(batch_df, batch_id):
+    batch_df.write \
+        .mode("overwrite") \
+        .json("/tmp/output")
 
 query = df_analysis.writeStream \
-    .format("console") \
     .outputMode("complete") \
-    .option("truncate", False) \
-    .option("numRows", 10) \
+    .foreachBatch(write_batch) \
+    .option("checkpointLocation", "/tmp/checkpoint") \
     .start()
 
 query.awaitTermination()
